@@ -100,8 +100,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _buildActionBox(
                       context: context,
-                      title: 'Upload Waste',
-                      icon: Icons.upload_file,
+                      title: 'SELL',
+                      icon: Icons.handshake,
                       color: Colors.blue.shade200, // Light blue, similar to "Learning"
                       onTap: () {
                         Navigator.push(
@@ -112,8 +112,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     _buildActionBox(
                       context: context,
-                      title: 'View Waste Items',
-                      icon: Icons.visibility,
+                      title: 'BUY',
+                      icon: Icons.recycling,
                       color: Colors.green.shade200, // Light green, similar to "Path Finder"
                       onTap: () {
                         Navigator.push(

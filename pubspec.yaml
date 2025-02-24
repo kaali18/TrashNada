@@ -76,6 +76,7 @@ flutter:
   assets:
      - assets/models/waste_classifier2.tflite
      - assets/models/waste_recommendation_model.tflite
+     - assets/models/advanced_price_predictor.tflite
      - assets/Logo.jpeg
      - assets/login_bg.jpeg
      - assets/background.jpeg

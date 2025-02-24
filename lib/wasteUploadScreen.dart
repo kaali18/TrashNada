@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../utils/classifier.dart';
+import '../utils/price_detector.dart';
 import 'package:abwm/Services/api_services.dart';
 
 class UploadWasteScreen extends StatefulWidget {
@@ -14,100 +15,140 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
   final _typeController = TextEditingController();
   final _quantityController = TextEditingController();
   final _priceController = TextEditingController();
-  final _locationController = TextEditingController();
   final _uploadedByController = TextEditingController();
+  final _basePriceController = TextEditingController();
+  final _qualityController = TextEditingController();
+
+  // List of 14 districts in Kerala
+  final List<String> _districts = [
+    'Alappuzha',
+    'Ernakulam',
+    'Idukki',
+    'Kannur',
+    'Kasaragod',
+    'Kollam',
+    'Kottayam',
+    'Kozhikode',
+    'Malappuram',
+    'Palakkad',
+    'Pathanamthitta',
+    'Thiruvananthapuram',
+    'Thrissur',
+    'Wayanad',
+  ];
+  String? _selectedDistrict; // To hold the selected district
 
   File? _image;
   late WasteClassifier _classifier;
+  late PriceDetector _priceDetector;
   bool _isClassifying = false;
+  bool _isPriceDetecting = false;
   bool _isModelLoading = true;
+  bool _isPriceModelLoading = true;
   bool _isUploading = false;
 
   @override
   void initState() {
     super.initState();
     _classifier = WasteClassifier();
-    _loadModel();
+    _priceDetector = PriceDetector();
+    _loadModels();
   }
 
-  Future<void> _loadModel() async {
-    setState(() => _isModelLoading = true);
+  Future<void> _loadModels() async {
     try {
       await _classifier.loadModel();
       setState(() => _isModelLoading = false);
+      await _priceDetector.loadModel();
+      setState(() => _isPriceModelLoading = false);
     } catch (e) {
-      print('Model load failed: $e');
-      setState(() => _isModelLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load model: $e')),
+        SnackBar(content: Text('Failed to load models: $e')),
       );
+      setState(() {
+        _isModelLoading = false;
+        _isPriceModelLoading = false;
+      });
     }
   }
 
   Future<void> _pickImage() async {
-  if (_isModelLoading) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Please wait, model is still loading')),
-    );
-    return;
-  }
+    if (_isModelLoading || _isPriceModelLoading) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please wait, models are loading')),
+      );
+      return;
+    }
 
-  final picker = ImagePicker();
-  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-  if (pickedFile != null) {
-    setState(() {
-      _image = File(pickedFile.path);
-      _isClassifying = true;
-    });
-    try {
-      String type = await _classifier.classifyImage(_image!);
-      print('Classification result: $type'); // Now outputs one of: plastic, metal, paper, cardboard, trash, glass
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
       setState(() {
-        _typeController.text = type; // Ensure UI reflects lowercase labels
-        _isClassifying = false;
+        _image = File(pickedFile.path);
+        _isClassifying = true;
+        _isPriceDetecting = true;
       });
-    } catch (e) {
-      print('Error classifying image: $e');
-      setState(() {
-        _typeController.text = 'Error';
-        _isClassifying = false;
-      });
+
+      try {
+        String wasteClass = await _classifier.classifyImage(_image!);
+        double quality = 0.8; // Placeholder
+        double basePrice = await _priceDetector.predictPrice(wasteClass, quality);
+
+        setState(() {
+          _typeController.text = wasteClass;
+          _basePriceController.text = basePrice.toStringAsFixed(2);
+          _priceController.text = basePrice.toStringAsFixed(2);
+          _qualityController.text = quality.toStringAsFixed(2);
+          _isClassifying = false;
+          _isPriceDetecting = false;
+        });
+      } catch (e) {
+        setState(() {
+          _typeController.text = 'error';
+          _basePriceController.text = '0.00';
+          _priceController.text = '0.00';
+          _qualityController.text = '0.00';
+          _isClassifying = false;
+          _isPriceDetecting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error processing image: $e')),
+        );
+      }
     }
   }
-}
 
   Future<void> _uploadWaste() async {
-  if (_formKey.currentState!.validate() && _image != null) {
-    final waste = {
-      'type': _typeController.text,
-      'quantity': double.parse(_quantityController.text),
-      'price': double.parse(_priceController.text),
-      'location': _locationController.text,
-      'uploadedBy': _uploadedByController.text, // Can be any string now
-    };
+    if (_formKey.currentState!.validate() && _image != null && _selectedDistrict != null) {
+      final waste = {
+        'type': _typeController.text,
+        'quantity': double.parse(_quantityController.text),
+        'price': double.parse(_priceController.text),
+        'quality': double.parse(_qualityController.text),
+        'location': _selectedDistrict, // Use selected district
+        'uploadedBy': _uploadedByController.text,
+      };
 
-    setState(() => _isUploading = true);
-    try {
-      print('Uploading waste: $waste, Image: ${_image!.path}');
-      await ApiService.uploadWaste(waste, _image!);
+      setState(() => _isUploading = true);
+      try {
+        await ApiService.uploadWaste(waste, _image!);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Waste uploaded successfully!')),
+        );
+        Navigator.pop(context);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload waste: $e')),
+        );
+      } finally {
+        setState(() => _isUploading = false);
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Waste uploaded successfully!')),
+        SnackBar(content: Text('Please upload an image, select a district, and fill all fields')),
       );
-      Navigator.pop(context);
-    } catch (e) {
-      print('Upload error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload waste: $e')),
-      );
-    } finally {
-      setState(() => _isUploading = false);
     }
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Please upload an image and fill all fields')),
-    );
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -131,16 +172,22 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _isModelLoading
-                      ? Center(child: CircularProgressIndicator())
+                  _isModelLoading || _isPriceModelLoading
+                      ? Center(child: CircularProgressIndicator(color: Colors.white))
                       : _image == null
                           ? Container(
                               height: 200,
                               width: double.infinity,
-                              color: Colors.grey.shade300,
-                              child: Center(child: Text('No image selected')),
+                              color: Colors.green.shade600.withOpacity(0.2),
+                              child: Center(child: Text('No image selected', style: TextStyle(color: Colors.white))),
                             )
-                          : Image.file(_image!, height: 200, fit: BoxFit.cover),
+                          : Stack(
+                              children: [
+                                Image.file(_image!, height: 200, fit: BoxFit.cover),
+                                if (_isClassifying || _isPriceDetecting)
+                                  Center(child: CircularProgressIndicator(color: Colors.white)),
+                              ],
+                            ),
                   SizedBox(height: 10),
                   ElevatedButton(
                     onPressed: _pickImage,
@@ -155,15 +202,12 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                     controller: _typeController,
                     decoration: InputDecoration(
                       labelText: 'Waste Type',
-                      suffixIcon: _isClassifying ? CircularProgressIndicator() : null,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) return 'Please upload an image or enter waste type';
-                      return null;
-                    },
+                    validator: (value) => value!.isEmpty ? 'Please enter waste type' : null,
                   ),
                   SizedBox(height: 10),
                   TextFormField(
@@ -172,7 +216,8 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                       labelText: 'Quantity (kg)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -183,12 +228,25 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                   ),
                   SizedBox(height: 10),
                   TextFormField(
-                    controller: _priceController,
+                    controller: _basePriceController,
                     decoration: InputDecoration(
-                      labelText: 'Price (per kg)',
+                      labelText: 'Base Price (per kg)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
+                      enabled: false,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: InputDecoration(
+                      labelText: 'Final Price (per kg)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -199,17 +257,39 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                   ),
                   SizedBox(height: 10),
                   TextFormField(
-                    controller: _locationController,
+                    controller: _qualityController,
                     decoration: InputDecoration(
-                      labelText: 'Location',
+                      labelText: 'Quality (0-1)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
+                      enabled: false,
                     ),
-                    validator: (value) {
-                      if (value!.isEmpty) return 'Please enter location';
-                      return null;
+                  ),
+                  SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: _selectedDistrict,
+                    decoration: InputDecoration(
+                      labelText: 'District',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
+                    ),
+                    items: _districts.map((String district) {
+                      return DropdownMenuItem<String>(
+                        value: district,
+                        child: Text(district, style: TextStyle(color: Colors.black)),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedDistrict = newValue;
+                      });
                     },
+                    validator: (value) => value == null ? 'Please select a district' : null,
+                    dropdownColor: Colors.green.shade200,
                   ),
                   SizedBox(height: 10),
                   TextFormField(
@@ -218,7 +298,8 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                       labelText: 'Uploaded By (Your Email)',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Colors.green.shade700.withOpacity(0.2),
+                      labelStyle: TextStyle(color: Colors.white),
                     ),
                     validator: (value) {
                       if (value!.isEmpty) return 'Please enter your email';
@@ -228,7 +309,7 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
                   ),
                   SizedBox(height: 20),
                   _isUploading
-                      ? CircularProgressIndicator()
+                      ? CircularProgressIndicator(color: Colors.white)
                       : ElevatedButton(
                           onPressed: _uploadWaste,
                           style: ElevatedButton.styleFrom(
@@ -251,10 +332,13 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
   @override
   void dispose() {
     _classifier.close();
+    _priceDetector.close();
     _typeController.dispose();
     _quantityController.dispose();
     _priceController.dispose();
-    _locationController.dispose();
+    _basePriceController.dispose();
+    _qualityController.dispose();
+   // _locationController.dispose(); // No longer needed but kept for cleanup
     _uploadedByController.dispose();
     super.dispose();
   }
