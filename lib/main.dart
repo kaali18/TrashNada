@@ -2,7 +2,8 @@ import 'package:abwm/Chatbot.dart';
 import 'package:abwm/LandingPage.dart';
 
 import 'package:abwm/wasteUploadScreen.dart';
-
+//import 'package:abwm/Services/api_services.dart';
+import 'package:abwm/waste_hotspot.dart';
 import 'package:abwm/wastemarketplace.dart';
 import 'package:flutter/material.dart';
 
@@ -124,13 +125,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     _buildActionBox(
                       context: context,
-                      title: 'Settings',
-                      icon: Icons.settings,
+                      title: 'Hotspots',
+                      icon: Icons.location_on,
                       color: Colors.orange.shade200, // Light orange, similar to "Jobs"
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => SettingsScreen()),
+                          MaterialPageRoute(builder: (context) => WasteHotspotScreen()),
                         );
                       },
                     ),
@@ -240,15 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // Placeholder classes for Settings and About Us screens
-class SettingsScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Settings'), backgroundColor: Colors.green.shade700),
-      body: Center(child: Text('Settings Screen')),
-    );
-  }
-}
+
 
 class AboutUsScreen extends StatelessWidget {
   @override

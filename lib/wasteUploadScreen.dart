@@ -3,7 +3,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../utils/classifier.dart';
 import '../utils/price_detector.dart';
+import '../utils/hotspot.dart';
 import 'package:abwm/Services/api_services.dart';
+import 'package:abwm/waste_hotspot.dart';
 
 class UploadWasteScreen extends StatefulWidget {
   @override
@@ -19,32 +21,22 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
   final _basePriceController = TextEditingController();
   final _qualityController = TextEditingController();
 
-  // List of 14 districts in Kerala
   final List<String> _districts = [
-    'Alappuzha',
-    'Ernakulam',
-    'Idukki',
-    'Kannur',
-    'Kasaragod',
-    'Kollam',
-    'Kottayam',
-    'Kozhikode',
-    'Malappuram',
-    'Palakkad',
-    'Pathanamthitta',
-    'Thiruvananthapuram',
-    'Thrissur',
-    'Wayanad',
+    'Alappuzha', 'Ernakulam', 'Idukki', 'Kannur', 'Kasaragod', 'Kollam',
+    'Kottayam', 'Kozhikode', 'Malappuram', 'Palakkad', 'Pathanamthitta',
+    'Thiruvananthapuram', 'Thrissur', 'Wayanad',
   ];
-  String? _selectedDistrict; // To hold the selected district
+  String? _selectedDistrict;
 
   File? _image;
   late WasteClassifier _classifier;
   late PriceDetector _priceDetector;
+  late HotspotClassifier _hotspotClassifier;
   bool _isClassifying = false;
   bool _isPriceDetecting = false;
   bool _isModelLoading = true;
   bool _isPriceModelLoading = true;
+  bool _isHotspotModelLoading = true;
   bool _isUploading = false;
 
   @override
@@ -52,6 +44,7 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
     super.initState();
     _classifier = WasteClassifier();
     _priceDetector = PriceDetector();
+    _hotspotClassifier = HotspotClassifier();
     _loadModels();
   }
 
@@ -61,6 +54,8 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
       setState(() => _isModelLoading = false);
       await _priceDetector.loadModel();
       setState(() => _isPriceModelLoading = false);
+      await _hotspotClassifier.loadModel();
+      setState(() => _isHotspotModelLoading = false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load models: $e')),
@@ -68,12 +63,13 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
       setState(() {
         _isModelLoading = false;
         _isPriceModelLoading = false;
+        _isHotspotModelLoading = false;
       });
     }
   }
 
   Future<void> _pickImage() async {
-    if (_isModelLoading || _isPriceModelLoading) {
+    if (_isModelLoading || _isPriceModelLoading || _isHotspotModelLoading) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please wait, models are loading')),
       );
@@ -91,7 +87,7 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
 
       try {
         String wasteClass = await _classifier.classifyImage(_image!);
-        double quality = 0.8; // Placeholder
+        double quality = 0.8;
         double basePrice = await _priceDetector.predictPrice(wasteClass, quality);
 
         setState(() {
@@ -125,7 +121,7 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
         'quantity': double.parse(_quantityController.text),
         'price': double.parse(_priceController.text),
         'quality': double.parse(_qualityController.text),
-        'location': _selectedDistrict, // Use selected district
+        'location': _selectedDistrict,
         'uploadedBy': _uploadedByController.text,
       };
 
@@ -135,7 +131,17 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Waste uploaded successfully!')),
         );
-        Navigator.pop(context);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WasteHotspotScreen(
+              initialDistrict: _selectedDistrict,
+              wasteType: _typeController.text,
+              quantity: double.parse(_quantityController.text),
+            ),
+          ),
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to upload waste: $e')),
@@ -172,7 +178,7 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _isModelLoading || _isPriceModelLoading
+                  _isModelLoading || _isPriceModelLoading || _isHotspotModelLoading
                       ? Center(child: CircularProgressIndicator(color: Colors.white))
                       : _image == null
                           ? Container(
@@ -333,12 +339,12 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
   void dispose() {
     _classifier.close();
     _priceDetector.close();
+    _hotspotClassifier.close();
     _typeController.dispose();
     _quantityController.dispose();
     _priceController.dispose();
     _basePriceController.dispose();
     _qualityController.dispose();
-   // _locationController.dispose(); // No longer needed but kept for cleanup
     _uploadedByController.dispose();
     super.dispose();
   }
