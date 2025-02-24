@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
+//import 'package:jwt_decoder/jwt_decoder.dart';
 import '../models/waste_models.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.10.157.116:3000/api'; // Your IP
+  static const String baseUrl = 'http://10.10.157.116:3000/api';
 
   // Signup
   static Future<String> signup(String email, String password, String role) async {
@@ -56,28 +56,17 @@ class ApiService {
     if (token == null) throw Exception('No token found');
 
     request.headers['Authorization'] = 'Bearer $token';
-
-    waste.forEach((key, value) {
-      request.fields[key] = value.toString();
-      print('Adding field: $key = $value'); // Debug
-    });
+    waste.forEach((key, value) => request.fields[key] = value.toString());
     request.files.add(await http.MultipartFile.fromPath(
       'image',
       image.path,
       contentType: MediaType('image', 'jpeg'),
     ));
 
-    try {
-      print('Sending upload request to: $url with headers: ${request.headers}');
-      final response = await request.send();
-      final responseBody = await http.Response.fromStream(response);
-      if (response.statusCode != 201) {
-        print('Response body: ${responseBody.body}');
-        throw Exception('Failed to upload waste: ${response.statusCode} - ${responseBody.body}');
-      }
-    } catch (e) {
-      print('Upload error: $e');
-      throw Exception('Network error: $e');
+    final response = await request.send();
+    final responseBody = await http.Response.fromStream(response);
+    if (response.statusCode != 201) {
+      throw Exception('Failed to upload waste: ${responseBody.body}');
     }
   }
 
@@ -87,37 +76,15 @@ class ApiService {
   final token = prefs.getString('token');
   if (token == null) throw Exception('No token found');
 
-  print('Fetching waste items from: $baseUrl/waste-items with token: $token');
   final response = await http.get(
     Uri.parse('$baseUrl/waste-items'),
     headers: {'Authorization': 'Bearer $token'},
   );
-  print('Response: ${response.statusCode} - ${response.body}');
-
+  print('Raw response from /waste-items: ${response.body}'); // Log raw JSON
   if (response.statusCode == 200) {
     final List<dynamic> data = json.decode(response.body);
-    print('Parsed waste items before mapping: $data');
-    return data.map((json) {
-      // Add detailed error logging
-      try {
-        print('Processing waste item: $json');
-        final waste = Waste.fromJson(json);
-        print('Successfully parsed waste item: ${waste.type}');
-        return waste;
-      } catch (e, stackTrace) {
-        print('Error parsing waste item: $json');
-        print('Error: $e');
-        print('Stack trace: $stackTrace');
-        // Return a default waste item instead of throwing
-        return Waste(
-          type: 'Error',
-          quantity: 0,
-          price: 0,
-          location: 'Unknown',
-          uploadedBy: 'Unknown',
-        );
-      }
-    }).toList();
+    print('Parsed waste items: $data'); // Log parsed data
+    return data.map((json) => Waste.fromJson(json)).toList();
   } else {
     throw Exception('Failed to fetch waste items: ${response.body}');
   }
@@ -129,42 +96,36 @@ class ApiService {
     final token = prefs.getString('token');
     if (token == null) throw Exception('No token found');
 
-    // Debug the token to ensure userId is present
-    print('Token: $token');
-    final decodedToken = JwtDecoder.decode(token);
-    print('Decoded token: $decodedToken');
-
-    print('Sending POST to: $baseUrl/purchase/$id with token: $token');
     final response = await http.post(
       Uri.parse('$baseUrl/purchase/$id'),
       headers: {'Authorization': 'Bearer $token'},
     );
-    print('Response: ${response.statusCode} - ${response.body}');
-
     if (response.statusCode != 200) {
       throw Exception('Failed to send purchase request: ${response.body}');
     }
   }
-  // Get pending requests (for seller)
-  static Future<List<Waste>> getPendingRequests() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) throw Exception('No token found');
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/waste-items'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      final allItems = data.map((json) => Waste.fromJson(json)).toList();
-      final decodedToken = JwtDecoder.decode(token);
-      final userEmail = decodedToken['email'] as String;
-      return allItems.where((waste) => waste.uploadedBy == userEmail && waste.purchaseRequests.isNotEmpty).toList();
-    } else {
-      throw Exception('Failed to fetch pending requests: ${response.body}');
-    }
+  // Get pending requests (returns List<Map<String, dynamic>>)
+  static Future<List<Map<String, dynamic>>> getPendingRequests() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  if (token == null) throw Exception('No token found');
+  //print('Token for pending requests:', token); // Log token
+  //final decoded = JwtDecoder.decode(token);
+  //print('Decoded token:', decoded); // Log decoded token
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/pending-requests'),
+    headers: {'Authorization': 'Bearer $token'},
+  );
+  //print('Pending requests response:', response.body); // Log response
+  if (response.statusCode == 200) {
+    final List<dynamic> data = json.decode(response.body);
+    return data.cast<Map<String, dynamic>>();
+  } else {
+    throw Exception('Failed to fetch pending requests: ${response.body}');
   }
+}
 
   // Approve purchase request
   static Future<void> approvePurchase(String wasteId, String requestId, String status) async {

@@ -1,11 +1,11 @@
 class Waste {
-  final String? id; // Nullable (String?) for MongoDB _id compatibility
+  final String? id; // Nullable for MongoDB _id compatibility
   final String type; // Non-nullable
   final double quantity; // Non-nullable
   final double price; // Non-nullable
   final String location; // Non-nullable
   final String uploadedBy; // Non-nullable
-  final String? image; // Nullable (String?) since images can be optional
+  final String? image; // Nullable since images are optional
   final bool sold; // Non-nullable
   final List<PurchaseRequest> purchaseRequests; // Non-nullable, defaults to empty list
 
@@ -25,11 +25,11 @@ class Waste {
     print('Parsing waste item: $json'); // Debug
     return Waste(
       id: json['_id'] as String?, // Allow null for id
-      type: json['type'] as String, // Expects non-null String
-      quantity: (json['quantity'] as num).toDouble(), // Expects non-null num
-      price: (json['price'] as num).toDouble(), // Expects non-null num
-      location: json['location'] as String, // Expects non-null String
-      uploadedBy: json['uploadedBy'] as String, // Expects non-null String
+      type: json['type'] as String? ?? 'Unknown', // Fallback if null
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0.0, // Fallback if null
+      price: (json['price'] as num?)?.toDouble() ?? 0.0, // Fallback if null
+      location: json['location'] as String? ?? 'Unknown', // Fallback if null
+      uploadedBy: json['uploadedBy'] as String? ?? 'Anonymous', // Fallback if null
       image: json['image'] as String?, // Allow null
       sold: json['sold'] as bool? ?? false, // Defaults to false if null
       purchaseRequests: (json['purchaseRequests'] as List<dynamic>? ?? [])
@@ -40,24 +40,24 @@ class Waste {
 
   Map<String, dynamic> toJson() {
     return {
-      'type': type, // Non-nullable
-      'quantity': quantity, // Non-nullable
-      'price': price, // Non-nullable
-      'location': location, // Non-nullable
-      'uploadedBy': uploadedBy, // Non-nullable
-      'image': image, // Can be null
+      'type': type,
+      'quantity': quantity,
+      'price': price,
+      'location': location,
+      'uploadedBy': uploadedBy,
+      'image': image,
     };
   }
 }
 
 class PurchaseRequest {
-  final String? id; // Nullable (String?) for MongoDB _id compatibility
-  final String userId; // Non-nullable, corrected to 'userId'
+  final String? id; // Nullable for MongoDB _id compatibility
+  final String? userId; // Nullable, since backend allows it
   final String status; // Non-nullable
 
   PurchaseRequest({
     this.id, // Optional, can be null
-    required this.userId, // Required, non-nullable
+    this.userId, // Optional, can be null
     required this.status, // Required, non-nullable
   });
 
@@ -65,8 +65,8 @@ class PurchaseRequest {
     print('Parsing purchase request: $json'); // Debug
     return PurchaseRequest(
       id: json['_id'] as String?, // Allow null for id
-      userId: json['userId'] as String, // Expects non-null String, corrected from 'userld'
-      status: (json['status'] as String?) ?? 'pending', // Default to 'pending' if null
+      userId: json['userId'] as String? ?? 'Anonymous', // Fallback if null
+      status: json['status'] as String? ?? 'pending', // Default to 'pending' if null
     );
   }
 }
