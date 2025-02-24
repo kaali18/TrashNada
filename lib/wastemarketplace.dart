@@ -10,6 +10,7 @@ import 'package:abwm/login_screen.dart';
 
 import 'package:jwt_decoder/jwt_decoder.dart';
 
+
 class WasteItemsScreen extends StatefulWidget {
   @override
   _WasteItemsScreenState createState() => _WasteItemsScreenState();
@@ -38,9 +39,12 @@ class _WasteItemsScreenState extends State<WasteItemsScreen> {
     final token = prefs.getString('token');
     if (token != null) {
       final decodedToken = JwtDecoder.decode(token);
+      print('Decoded token in _fetchUserRole: $decodedToken'); // Debug
       setState(() {
         _userRole = decodedToken['role'] as String? ?? 'other'; // Default to 'other'
       });
+    } else {
+      print('No token found in _fetchUserRole');
     }
   }
 
@@ -96,6 +100,7 @@ class _WasteItemsScreenState extends State<WasteItemsScreen> {
     }
 
     try {
+      print('Attempting to purchase waste with ID: ${waste.id}'); // Debug
       await ApiService.purchaseWaste(waste.id!);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Purchase request sent successfully!')),

@@ -129,6 +129,11 @@ class ApiService {
     final token = prefs.getString('token');
     if (token == null) throw Exception('No token found');
 
+    // Debug the token to ensure userId is present
+    print('Token: $token');
+    final decodedToken = JwtDecoder.decode(token);
+    print('Decoded token: $decodedToken');
+
     print('Sending POST to: $baseUrl/purchase/$id with token: $token');
     final response = await http.post(
       Uri.parse('$baseUrl/purchase/$id'),
@@ -140,7 +145,6 @@ class ApiService {
       throw Exception('Failed to send purchase request: ${response.body}');
     }
   }
-
   // Get pending requests (for seller)
   static Future<List<Waste>> getPendingRequests() async {
     final prefs = await SharedPreferences.getInstance();
