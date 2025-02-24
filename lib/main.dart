@@ -1,4 +1,6 @@
-import 'package:abwm/upload2.dart';
+//import 'package:abwm/login_screen.dart';
+import 'package:abwm/signup.dart';
+
 import 'package:abwm/wasteUploadScreen.dart';
 import 'package:abwm/wastemarketplace.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HomeScreen(),
+      home: SignupScreen(),
     );
   }
 }
@@ -41,15 +43,7 @@ class HomeScreen extends StatelessWidget {
               },
               child: Text('Upload Waste'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => UploadScreen()),
-                );
-              },
-              child: Text('Upload Photo'),
-            ),
+            
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
