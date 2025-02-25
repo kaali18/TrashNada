@@ -115,47 +115,46 @@ class _UploadWasteScreenState extends State<UploadWasteScreen> {
   }
 
   Future<void> _uploadWaste() async {
-    if (_formKey.currentState!.validate() && _image != null && _selectedDistrict != null) {
-      final waste = {
-        'type': _typeController.text,
-        'quantity': double.parse(_quantityController.text),
-        'price': double.parse(_priceController.text),
-        'quality': double.parse(_qualityController.text),
-        'location': _selectedDistrict,
-        'uploadedBy': _uploadedByController.text,
-      };
+  if (_formKey.currentState!.validate() && _image != null && _selectedDistrict != null) {
+    final waste = {
+      'type': _typeController.text,
+      'quantity': double.parse(_quantityController.text),
+      'price': double.parse(_priceController.text),
+      'quality': double.parse(_qualityController.text),
+      'location': _selectedDistrict,
+      'uploadedBy': _uploadedByController.text,
+    };
 
-      setState(() => _isUploading = true);
-      try {
-        await ApiService.uploadWaste(waste, _image!);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Waste uploaded successfully!')),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WasteHotspotScreen(
-              initialDistrict: _selectedDistrict,
-              wasteType: _typeController.text,
-              quantity: double.parse(_quantityController.text),
-            ),
-          ),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload waste: $e')),
-        );
-      } finally {
-        setState(() => _isUploading = false);
-      }
-    } else {
+    setState(() => _isUploading = true);
+    try {
+      await ApiService.uploadWaste(waste, _image!);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please upload an image, select a district, and fill all fields')),
+        SnackBar(content: Text('Waste uploaded successfully!')),
       );
-    }
-  }
 
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => WasteHotspotScreen(
+            initialDistrict: _selectedDistrict,
+            wasteType: _typeController.text,
+            quantity: double.parse(_quantityController.text),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload waste: $e')),
+      );
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Please upload an image, select a district, and fill all fields')),
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

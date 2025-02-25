@@ -8,6 +8,9 @@ class WasteHotspotScreen extends StatefulWidget {
 
   WasteHotspotScreen({this.initialDistrict, this.wasteType, this.quantity});
 
+  // Static variable to persist hotspots across instances
+  static List<Map<String, dynamic>> persistedHotspots = [];
+
   @override
   _WasteHotspotScreenState createState() => _WasteHotspotScreenState();
 }
@@ -33,14 +36,25 @@ class _WasteHotspotScreenState extends State<WasteHotspotScreen> {
     try {
       await _hotspotClassifier.loadModel();
       if (_hotspotClassifier.isModelLoaded) {
-        final district = widget.initialDistrict ?? 'Thrissur';
-        final wasteType = widget.wasteType ?? 'plastic'; // Default if missing
-        final quantity = widget.quantity ?? 0.0; // Default if missing
-        final hotspots = await _hotspotClassifier.predictHotspots(district, wasteType, quantity);
-        setState(() {
-          _hotspots = hotspots;
-          _isLoading = false;
-        });
+        // If parameters are provided (from UploadWasteScreen), predict and update persisted data
+        if (widget.initialDistrict != null && widget.wasteType != null && widget.quantity != null) {
+          final hotspots = await _hotspotClassifier.predictHotspots(
+            widget.initialDistrict!,
+            widget.wasteType!,
+            widget.quantity!,
+          );
+          WasteHotspotScreen.persistedHotspots = hotspots; // Save to static variable
+          setState(() {
+            _hotspots = hotspots;
+            _isLoading = false;
+          });
+        } else {
+          // Use persisted hotspots if available, otherwise empty
+          setState(() {
+            _hotspots = WasteHotspotScreen.persistedHotspots;
+            _isLoading = false;
+          });
+        }
       } else {
         throw Exception('Hotspot model failed to load');
       }
@@ -56,48 +70,12 @@ class _WasteHotspotScreenState extends State<WasteHotspotScreen> {
     }
   }
 
-  Future<void> _refreshHotspots() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
-    try {
-      if (_hotspotClassifier.isModelLoaded) {
-        final district = widget.initialDistrict ?? 'Thrissur';
-        final wasteType = widget.wasteType ?? 'plastic';
-        final quantity = widget.quantity ?? 0.0;
-        final hotspots = await _hotspotClassifier.predictHotspots(district, wasteType, quantity);
-        setState(() {
-          _hotspots = hotspots;
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Hotspot model not loaded');
-      }
-    } catch (e) {
-      print('Error refreshing hotspots: $e');
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to refresh waste hotspots: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Waste Hotspots'),
         backgroundColor: Colors.green.shade700,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _refreshHotspots,
-          ),
-        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -133,7 +111,7 @@ class _WasteHotspotScreenState extends State<WasteHotspotScreen> {
                 : _hotspots.isEmpty
                     ? Center(
                         child: Text(
-                          'No waste hotspots available.',
+                          'No waste hotspots available. Upload waste to see predictions.',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       )

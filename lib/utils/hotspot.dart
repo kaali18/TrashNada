@@ -50,7 +50,6 @@ class HotspotClassifier {
     double probHotspot = output[0][0];
 
     // Simulate rankings for all districts (since model gives one score)
-    // In a real model, this might output 14 scores; adjust if so
     final rankedHotspots = districts.map((district) {
       // Boost the input district; others get a scaled-down score
       double score = district == inputDistrict ? probHotspot : probHotspot * (0.9 - districts.indexOf(district) * 0.05);
